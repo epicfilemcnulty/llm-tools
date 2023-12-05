@@ -1,0 +1,33 @@
+model_name: mistral-slimorca
+base_model: /storage/models/FP16/Mistral-7B-v0.1
+max_len: 2048
+group_by_length: False
+lora_rank: 64
+lora_alpha: 128
+lora_dropout: 0.1
+lora_bias: none
+target_modules:
+- q_proj
+- k_proj
+- v_proj
+- o_proj
+- up_proj
+- down_proj
+- gate_proj
+modules_to_save:
+- lm_head
+- embed_tokens
+dataset: /storage/datasets/text/SlimOrca
+dataset_test_split: 0.0001
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4
+max_steps: 1000
+warmup_steps: 20
+save_steps: 50
+eval_steps: 25
+logging_steps: 5
+save_total_limit: 10
+num_train_epochs: 1
+learning_rate: 0.000025
+weight_decay: 0.001
+optimizer: paged_adamw_8bit
