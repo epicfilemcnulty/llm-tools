@@ -19,6 +19,7 @@ def read_yaml_file(file_path):
 parser = argparse.ArgumentParser()
 parser.add_argument("config_path", help="Path to the config YAML file")
 parser.add_argument("-c", "--checkpoint", type=str, default=None, required=False)
+parser.add_argument("-s", "--seed", type=int, default=42, required=False)
 args = parser.parse_args()
 config = read_yaml_file(args.config_path)
 
@@ -39,11 +40,12 @@ model = FastLlamaModel.get_peft_model(
     model,
     r = config["lora_rank"],
     target_modules = config["target_modules"],
+    modules_to_save = config["modules_to_save"],
     lora_alpha = config["lora_alpha"],
     lora_dropout = 0, # Currently only supports dropout = 0
     bias = "none",    # Currently only supports bias = "none"
     use_gradient_checkpointing = True,
-    random_state = 3407,
+    random_state = args.seed,
     max_seq_length = config["max_len"],
 )
 
@@ -72,14 +74,14 @@ trainer = SFTTrainer(
         bf16 = True,
         tf32 = True,
         evaluation_strategy = "steps",
-        per_device_eval_batch_size=1,
+        per_device_eval_batch_size=config["per_device_train_batch_size"],
         bf16_full_eval = True,
         eval_steps = config["eval_steps"],
         logging_steps = config["logging_steps"],
         optim = config["optimizer"],
         weight_decay = config["weight_decay"],
         lr_scheduler_type = "linear",
-        seed = 3407,
+        seed = args.seed,
         output_dir = output_dir,
     ),
 )
