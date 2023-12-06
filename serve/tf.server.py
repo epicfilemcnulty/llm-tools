@@ -13,6 +13,7 @@ parser.add_argument('-m', '--model', required=True, type=str, help="Grasping Mod
 parser.add_argument('-a', '--model_name', required=False, type=str, default="uknown", help="Grasping Model's Alias")
 parser.add_argument('-l', '--lora_dir', required=False, type=str, default='', help="Path to lora directory")
 parser.add_argument('-r', '--remote', action = "store_true", help="Trust remote code (default is False)")
+parser.add_argument('-f', '--flash_attn', action = "store_true", help="Use flash-attention (default is False)")
 parser.add_argument('--port', default=8013, required=False, type=int, help="Port to listen on")
 parser.add_argument('--ip', default='127.0.0.1', required=False, type=str, help="IP to listen on")
 args = parser.parse_args()
@@ -34,7 +35,7 @@ def load_model():
         bnb_4bit_use_double_quant=True,
         bnb_4bit_compute_dtype=torch.bfloat16
     )
-    model = AutoModelForCausalLM.from_pretrained(model_id, device_map='auto', quantization_config=nf4_config, max_memory=max_memory, trust_remote_code=args.remote, use_flash_attention_2=True)
+    model = AutoModelForCausalLM.from_pretrained(model_id, device_map='auto', quantization_config=nf4_config, max_memory=max_memory, trust_remote_code=args.remote, use_flash_attention_2=args.flash_attn)
     print(model.generation_config)
 
     if args.lora_dir != '':
