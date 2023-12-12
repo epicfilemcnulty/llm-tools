@@ -1,7 +1,7 @@
 import argparse
 import yaml
 from datasets import load_dataset
-from unsloth import FastLlamaModel
+from unsloth import FastMistralModel
 import torch
 from trl import SFTTrainer
 from transformers import TrainingArguments
@@ -25,7 +25,7 @@ config = read_yaml_file(args.config_path)
 
 output_dir = "trainees/" + config["model_name"]
 
-model, tokenizer = FastLlamaModel.from_pretrained(
+model, tokenizer = FastMistralModel.from_pretrained(
     model_name = config["base_model"],
     max_seq_length = config["max_len"],
     dtype = torch.bfloat16,
@@ -36,7 +36,7 @@ if tokenizer.pad_token == None:
     add_special_tokens({'pad_token':'[PAD]'}, tokenizer, model)
     tokenizer.save_pretrained(output_dir)
 
-model = FastLlamaModel.get_peft_model(
+model = FastMistralModel.get_peft_model(
     model,
     r = config["lora_rank"],
     target_modules = config["target_modules"],
