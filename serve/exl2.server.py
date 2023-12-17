@@ -27,6 +27,7 @@ parser.add_argument('-c', '--length', default=0, required=False, type=int, help=
 parser.add_argument('-s', '--scale', default=1.0, required=False, type=float, help="Linear scale")
 parser.add_argument('-A', '--ntk_scale', default=1.0, required=False, type=float, help="NTK scale")
 parser.add_argument("-c8", "--cache_8bit", action = "store_true", help = "Use 8-bit cache")
+parser.add_argument('-gs', '--gpu-split', type=int, nargs='+', default=[0,24])
 parser.add_argument('--port', default=8013, required=False, type=int, help="Port to listen on")
 parser.add_argument('--ip', default='127.0.0.1', required=False, type=str, help="IP to listen on")
 args = parser.parse_args()
@@ -47,7 +48,7 @@ if args.ntk_scale != 1.0:
 
 model = ExLlamaV2(config)
 print("Loading model: " + args.model)
-model.load()
+model.load(gpu_split=args.gpu_split)
 tokenizer = ExLlamaV2Tokenizer(config)
 if args.cache_8bit:
     cache = ExLlamaV2Cache_8bit(model, lazy = not model.loaded)
