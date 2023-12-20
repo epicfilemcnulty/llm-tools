@@ -48,7 +48,7 @@ if args.ntk_scale != 1.0:
 
 model = ExLlamaV2(config)
 print("Loading model: " + args.model)
-model.load(gpu_split=args.gpu_split)
+model.load()
 tokenizer = ExLlamaV2Tokenizer(config)
 if args.cache_8bit:
     cache = ExLlamaV2Cache_8bit(model, lazy = not model.loaded)
@@ -86,9 +86,9 @@ def set_prompt():
     data = request.json
     conversation_uuid = data.get('uuid', str(uuid.uuid4()))
     messages = data.get('messages', [{'role':'system', 'content':''}])
-    prefix = data.get('prefix', 'USER: ')
-    suffix = data.get('suffix', 'ASSISTANT:')
-    infix = data.get('infix', '\n')
+    prefix = data.get('prefix', '')
+    suffix = data.get('suffix', '')
+    infix = data.get('infix', '')
     conversations[conversation_uuid] = {
         "messages": messages,
         "prefix": prefix,
@@ -106,10 +106,10 @@ def chat():
  
     temperature = data.get('temperature', 0.5)
     top_k = data.get('top_k', 40)
-    top_p = data.get('top_p', 0.9)
-    min_p = data.get('min_p', 0.1)
+    top_p = data.get('top_p', 0.75)
+    min_p = data.get('min_p', 0.0)
     add_bos = data.get('add_bos', True)
-    repetition_penalty = data.get('repetition_penalty', 1.15)
+    repetition_penalty = data.get('repetition_penalty', 1.05)
     max_new_tokens = data.get('max_length', 256)
     query = data.get('query')
  
@@ -138,6 +138,7 @@ def chat():
         if eos or generated_tokens == max_new_tokens:
             break
 
+    stop_reason = "eos" if eos else "length"
     end_time = time.time_ns()
     secs = (end_time - start_time) / 1e9
 
@@ -148,7 +149,8 @@ def chat():
         "tokens": generated_tokens,
         "rate": generated_tokens / secs,
         "model": args.model_name,
-        "type" : 'exllama',
+        "backend" : 'exllama',
+        "stop": stop_reason,
         "ctx" : prompt_tokens + generated_tokens
     }
 
@@ -161,9 +163,9 @@ def complete():
     encode_special = data.get('encode_special_tokens', True)
     temperature = data.get('temperature', 0.5)
     top_k = data.get('top_k', 40)
-    top_p = data.get('top_p', 0.9)
+    top_p = data.get('top_p', 0.75)
     min_p = data.get('min_p', 0.0)
-    repetition_penalty = data.get('repetition_penalty', 1.15)
+    repetition_penalty = data.get('repetition_penalty', 1.05)
     query = data.get('query')
 
     settings = ExLlamaV2Sampler.Settings()
@@ -188,6 +190,7 @@ def complete():
         if eos or generated_tokens == max_new_tokens:
             break
 
+    stop_reason = "eos" if eos else "length"
     end_time = time.time_ns()
     secs = (end_time - start_time) / 1e9
     return {
@@ -195,7 +198,8 @@ def complete():
         "ctx": generated_tokens + prompt_tokens,
         "tokens": generated_tokens,
         "rate": generated_tokens / secs,
-        "type": 'exllama',
+        "backend": 'exllama',
+        "stop": stop_reason,
         "model": args.model_name
     }
 

@@ -67,9 +67,9 @@ def set_prompt():
     data = request.json
     conversation_uuid = data.get('uuid', str(uuid.uuid4()))
     messages = data.get('messages', [{'role':'system', 'content':''}])
-    prefix = data.get('prefix', 'USER: ')
-    suffix = data.get('suffix', 'ASSISTANT:')
-    infix = data.get('infix', '\n')
+    prefix = data.get('prefix', '')
+    suffix = data.get('suffix', '')
+    infix = data.get('infix', '')
     conversations[conversation_uuid] = {
         "messages": messages,
         "prefix": prefix,
@@ -87,9 +87,9 @@ def chat():
  
     temperature = data.get('temperature', 0.5)
     top_k = data.get('top_k', 40)
-    top_p = data.get('top_p', 0.9)
+    top_p = data.get('top_p', 0.75)
     repetition_penalty = data.get('repetition_penalty', 1.05)
-    max_new_tokens = data.get('max_length', 512)
+    max_new_tokens = data.get('max_length', 256)
     query = data.get('query')
  
     conversations[conversation_uuid]['messages'].append({'role':'user','content':query})
@@ -121,6 +121,7 @@ def chat():
         "tokens": new_tokens,
         "rate": new_tokens / secs,
         "model": args.model_name,
+        "backend": "transformers",
     }
 
 @app.route('/complete', method='POST')
@@ -160,6 +161,7 @@ def complete():
         "tokens": new_tokens,
         "rate": new_tokens / secs,
         "model": args.model_name,
+        "backend": "transformers",
     }
 
 run(app, host=args.ip, port=args.port)
