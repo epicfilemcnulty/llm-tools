@@ -85,7 +85,9 @@ def full_conversation(idx):
 def set_prompt():
     data = request.json
     conversation_uuid = data.get('uuid', str(uuid.uuid4()))
-    messages = data.get('messages', [{'role':'system', 'content':''}])
+    messages = data.get('messages')
+    if not isinstance(messages, list):
+        messages = []
     prefix = data.get('prefix', '')
     suffix = data.get('suffix', '')
     infix = data.get('infix', '')
@@ -119,6 +121,7 @@ def chat():
     settings.top_p = top_p
     settings.min_p = min_p
     settings.token_repetition_penalty = repetition_penalty
+
     conversations[conversation_uuid]['messages'].append({'role':'user','content':query})
  
     full_ctx = full_conversation(conversation_uuid)
