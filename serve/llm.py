@@ -15,7 +15,6 @@ parser.add_argument('--ip', default='127.0.0.1', required=False, type=str, help=
 args = parser.parse_args()
 
 models = {}
-conversations = {}
 app = Bottle()
 
 @app.route('/load', method='POST')
@@ -43,50 +42,35 @@ def load_model():
 def loaded_models():
     return { models.keys() }
 
-@app.route('/chat', method='POST')
-def chat():
+@app.route('/complete', method='POST')
+def complete():
     data = request.json
-    conversation_uuid = data['uuid']
-    if conversation_uuid not in conversations:
-        return {"uuid":conversation_uuid, "message": "not found"}
- 
-    temperature = data.get('temperature', 0.5)
-    top_k = data.get('top_k', 40)
-    top_p = data.get('top_p', 0.75)
-    min_p = data.get('min_p', 0.0)
-    add_bos = data.get('add_bos', True)
-    add_eos = data.get('add_eos', False)
-    encode_special_tokens = False
-    repetition_penalty = data.get('repetition_penalty', 1.05)
-    max_new_tokens = data.get('max_length', 256)
-
     query = data.get('query')
-
     model_alias = data.get('model')
     model_type = models[model_alias]["type"]
 
-    sampler = {
-        "temperature": temperature,
-        "top_k": top_k,
-        "top_p": top_p,
-        "min_p": min_p,
-        "repetition_penalty": repetition_penalty,
-        "max_new_tokens": max_new_tokens,
-        "add_bos": add_bos,
-    }
+    if model_type is None:
+        return { "error": "model not found"}
 
-    conversations[conversation_uuid]['messages'].append({'role':'user','content':query})
-    full_ctx = full_conversation(conversation_uuid)
+    sampler = {
+        "temperature": data.get("temperature", 0.5),
+        "top_k": data.get("top_k", 40),
+        "top_p": data.get("top_p", 0.75),
+        "min_p": data.get("min_p", 0.0),
+        "repetition_penalty": data.get("repetition_penalty", 1.05),
+        "max_new_tokens": data.get("max_new_tokens", 512),
+        "add_bos": data.get('add_bos', True),
+        "add_eos": data.get('add_eos', False),
+        "encode_special_tokens": data.get('encode_special_tokens', False),
+    }
 
     start_time = time.time_ns()
     if model_type == "exl2":
         new_text, prompt_tokens, generated_tokens, stop_reason = exl2_query(full_ctx, sampler, models[model_alias]["tokenizer"], models[model_alias]["generator"], models[model_alias]["lora"])
     if model_type == "tf":
-        new_text, prompt_tokens, generated_tokens, stop_reason = tf_query(full_ctx, sampler)
+        new_text, prompt_tokens, generated_tokens, stop_reason = tf_query(full_ctx, sampler, models[model_alias]["tokenizer"], models[model_alias]["generator"], models[model_alias]["lora"])
     end_time = time.time_ns()
-
     secs = (end_time - start_time) / 1e9
-    conversations[conversation_uuid]['messages'].append({'role':'assistant','content':new_text})
 
     return {
         "uuid": conversation_uuid,
