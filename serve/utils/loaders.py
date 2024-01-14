@@ -1,3 +1,7 @@
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from peft import PeftModel
+
 from exllamav2 import (
     ExLlamaV2,
     ExLlamaV2Config,
@@ -32,3 +36,19 @@ def load_exl2_model(model_dir, context_length=None, lora_dir=None):
     # Make sure CUDA is initialized so we can measure performance
     generator.warmup()
     return { "model": model, "generator": generator, "tokenizer": tokenizer, "cache": cache, "lora": lora, "type": "exl2" }
+
+def load_tf_model(model_dir, context_length=None, lora_dir=None):
+    tokenizer = AutoTokenizer.from_pretrained(model_dir)
+    nf4_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.bfloat16
+    )
+    model = AutoModelForCausalLM.from_pretrained(model_dir, device_map='auto', quantization_config=nf4_config, trust_remote_code=False, attn_implementation="flash_attention_2")
+    print(model.generation_config)
+
+    if lora_dir is not None:
+        model = PeftModel.from_pretrained(model, lora_dir)
+
+    return { "model": model, "tokenizer": tokenizer, "type": "tf" }

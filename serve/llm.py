@@ -2,11 +2,13 @@ import argparse
 import sys, os
 import uuid
 import time
+import torch
+import gc
 import bottle
 from bottle import Bottle, run, route, request
 bottle.BaseRequest.MEMFILE_MAX = 1024 * 1024 * 10
 
-from utils.loaders import load_exl2_model
+from utils.loaders import load_exl2_model, load_tf_model
 from utils.generation import exl2_query, tf_query
 
 parser = argparse.ArgumentParser()
@@ -38,19 +40,33 @@ def load_model():
         models[model_alias] = load_tf_model(model_dir, context_length, lora_dir)
         return {"message": "model loaded"}
 
+@app.route('/unload', method='DELETE')
+def unload_model():
+    data = request.json
+    model_alias = data.get("model_alias")
+    if model_alias is not None:
+        if models[model_alias] is not None:
+            del models[model_alias]
+            gc.collect()
+            with torch.no_grad():
+                torch.cuda.empty_cache()
+            return { "message": "model unloaded" }
+    return { "error": "no such model" }
+
 @app.route('/models', method='GET')
 def loaded_models():
-    return { models.keys() }
+    return { "models": list(models.keys()) }
 
 @app.route('/complete', method='POST')
 def complete():
     data = request.json
     query = data.get('query')
+    conversation_uuid = data.get('uuid', str(uuid.uuid4()))
     model_alias = data.get('model')
-    model_type = models[model_alias]["type"]
-
-    if model_type is None:
+    if models[model_alias] is None:
         return { "error": "model not found"}
+
+    model_type = models[model_alias]["type"]
 
     sampler = {
         "temperature": data.get("temperature", 0.5),
@@ -65,10 +81,11 @@ def complete():
     }
 
     start_time = time.time_ns()
+    stop_reason = None
     if model_type == "exl2":
-        new_text, prompt_tokens, generated_tokens, stop_reason = exl2_query(full_ctx, sampler, models[model_alias]["tokenizer"], models[model_alias]["generator"], models[model_alias]["lora"])
+        new_text, prompt_tokens, generated_tokens, stop_reason = exl2_query(query, sampler, models[model_alias]["tokenizer"], models[model_alias]["generator"], models[model_alias]["lora"])
     if model_type == "tf":
-        new_text, prompt_tokens, generated_tokens, stop_reason = tf_query(full_ctx, sampler, models[model_alias]["tokenizer"], models[model_alias]["generator"], models[model_alias]["lora"])
+        new_text, prompt_tokens, generated_tokens = tf_query(query, sampler, models[model_alias]["model"], models[model_alias]["tokenizer"])
     end_time = time.time_ns()
     secs = (end_time - start_time) / 1e9
 
@@ -82,3 +99,5 @@ def complete():
         "stop": stop_reason,
         "ctx" : prompt_tokens + generated_tokens
     }
+
+run(app, host=args.ip, port=args.port)
