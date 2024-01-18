@@ -37,15 +37,15 @@ def load_exl2_model(model_dir, context_length=None, lora_dir=None):
     generator.warmup()
     return { "model": model, "generator": generator, "tokenizer": tokenizer, "cache": cache, "lora": lora, "type": "exl2" }
 
-def load_tf_model(model_dir, context_length=None, lora_dir=None):
-    tokenizer = AutoTokenizer.from_pretrained(model_dir)
+def load_tf_model(model_dir, context_length=None, lora_dir=None, trust_remote_code=False):
+    tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=trust_remote_code)
     nf4_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
         bnb_4bit_use_double_quant=True,
         bnb_4bit_compute_dtype=torch.bfloat16
     )
-    model = AutoModelForCausalLM.from_pretrained(model_dir, device_map='auto', quantization_config=nf4_config, trust_remote_code=False, attn_implementation="flash_attention_2")
+    model = AutoModelForCausalLM.from_pretrained(model_dir, device_map='auto', quantization_config=nf4_config, trust_remote_code=trust_remote_code, attn_implementation="flash_attention_2")
     print(model.generation_config)
 
     if lora_dir is not None:

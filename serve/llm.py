@@ -25,6 +25,7 @@ def load_model():
     model_dir = data.get('model_dir')
     model_type = data.get('model_type')
     model_alias = data.get('model_alias')
+    trust_remote_code = data.get('trust_remote_code', False)
     if not model_dir:
         return {"error": "model_dir is required"}
     if not model_type:
@@ -37,7 +38,7 @@ def load_model():
         models[model_alias] = load_exl2_model(model_dir, context_length, lora_dir)
         return {"message": "model loaded"}
     if model_type == "tf":
-        models[model_alias] = load_tf_model(model_dir, context_length, lora_dir)
+        models[model_alias] = load_tf_model(model_dir, context_length, lora_dir, trust_remote_code)
         return {"message": "model loaded"}
 
 @app.route('/unload', method='DELETE')
