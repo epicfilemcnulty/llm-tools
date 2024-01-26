@@ -1,0 +1,16 @@
+model_name: mamba-byte-base-2.8B
+n_layer: 64
+d_model: 2560
+chunk_size: 8192
+dataset: /storage/datasets/text/mamba/train/corpus.txt
+batch_size: 1
+gradient_accumulation_steps: 4
+max_steps: 3000
+num_train_epochs: 1
+logging_steps: 25
+warmup_steps: 20
+save_steps: 100
+save_total_limit: 3
+learning_rate: 0.0005
+optimizer: paged_adamw_8bit
+scheduler: linear

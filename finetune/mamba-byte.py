@@ -21,15 +21,15 @@ def run(args):
     )                                                                                                   
     model = MambaLMHeadModel(config=model_config, device="cuda", dtype=torch.bfloat16)   
 
-    data_module = ByteDataModule(
+    train_data = ByteDataModule(
         data_path=config["dataset"],
         chunk_size=config["chunk_size"],
     )
-
+    train_dataset = train_data.dataset
     output_dir = "trainees/" + config["model_name"]
     trainer = MambaTrainer(
         model=model,
-        train_dataset=data_module.dataset,
+        train_dataset=train_dataset,
         args=TrainingArguments(
             learning_rate=config["learning_rate"],
             per_device_train_batch_size=config["batch_size"],
@@ -37,6 +37,9 @@ def run(args):
             warmup_steps = config["warmup_steps"],
             max_steps = config["max_steps"],
             num_train_epochs=config["num_train_epochs"],
+            # Gotta fix attention_mask in Mamba.forward for this to work
+            #evaluation_strategy = "steps",
+            #eval_steps = config["eval_steps"],
             save_steps = config["save_steps"],
             save_total_limit = config["save_total_limit"],
             logging_steps=config["logging_steps"],
@@ -47,7 +50,7 @@ def run(args):
             seed=args.seed,
             output_dir=output_dir,
         ),
-        data_collator=data_module.data_collator,
+        data_collator=train_data.data_collator,
     )
     trainer.train(resume_from_checkpoint=args.checkpoint)
     trainer.save_model(output_dir)
