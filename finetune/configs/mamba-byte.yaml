@@ -1,0 +1,17 @@
+model_name: mamba-byte-base-790
+n_layer: 48
+d_model: 1536
+chunk_size: 8192
+dataset: /storage/datasets/text/mamba/corpus.txt
+batch_size: 1
+gradient_accumulation_steps: 4
+max_steps: 3000
+num_train_epochs: 1
+logging_steps: 10
+warmup_steps: 20
+save_steps: 50
+eval_steps: 25
+save_total_limit: 3
+learning_rate: 0.0005
+optimizer: paged_adamw_8bit
+scheduler: linear
