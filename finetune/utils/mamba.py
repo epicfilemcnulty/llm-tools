@@ -12,11 +12,14 @@ from torch.utils.data import Dataset
 from transformers import Trainer
 
 class SFTDataset(Dataset):                                                                          
-    def __init__(self, data_path, chunk_size=8192):                                                  
+    def __init__(self, data_dir, chunk_size=8192):                                                  
         super(SFTDataset, self).__init__()                                                          
-        with open(data_path, "rb") as file:                                                         
-            self.data = file.read()                                                                 
-        self.chunk_size = chunk_size                                                                
+        self.data = []                                                          
+        for filename in os.listdir(data_dir):                                   
+            with open(os.path.join(data_dir, filename), "rb") as file:          
+                self.data.append(file.read())                                   
+        self.data = b''.join(self.data)                                         
+        self.chunk_size = chunk_size 
                                                                                                     
     def __len__(self):                                                                              
         return len(self.data) // self.chunk_size                                                    
@@ -45,9 +48,9 @@ class DataCollatorForSFTDataset(object):
     
 
 class ByteDataModule():
-    def __init__(self, data_path: str, chunk_size: int):
+    def __init__(self, data_dir: str, chunk_size: int):
 
-        self.dataset = SFTDataset(data_path=data_path, chunk_size=chunk_size)
+        self.dataset = SFTDataset(data_dir=data_dir, chunk_size=chunk_size)
         self.data_collator = DataCollatorForSFTDataset()
 
 class MambaTrainer(Trainer):

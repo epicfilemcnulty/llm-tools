@@ -22,7 +22,7 @@ def run(args):
     model = MambaLMHeadModel(config=model_config, device="cuda", dtype=torch.bfloat16)   
 
     train_data = ByteDataModule(
-        data_path=config["dataset"],
+        data_dir=config["dataset"],
         chunk_size=config["chunk_size"],
     )
     train_dataset = train_data.dataset
