@@ -38,6 +38,7 @@ def run(args):
             learning_rate=config["learning_rate"],
             per_device_train_batch_size=config["batch_size"],
             gradient_accumulation_steps=config["gradient_accumulation_steps"],
+            max_grad_norm = config["max_grad_norm"],
             warmup_steps = config["warmup_steps"],
             max_steps = config["max_steps"],
             num_train_epochs=config["num_train_epochs"],
