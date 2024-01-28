@@ -11,14 +11,22 @@ from dataclasses import dataclass
 from torch.utils.data import Dataset
 from transformers import Trainer
 
-class SFTDataset(Dataset):                                                                          
-    def __init__(self, data_dir, chunk_size=8192):                                                  
-        super(SFTDataset, self).__init__()                                                          
-        self.data = []                                                          
-        for filename in os.listdir(data_dir):                                   
-            with open(os.path.join(data_dir, filename), "rb") as file:          
-                self.data.append(file.read())                                   
-        self.data = b''.join(self.data)                                         
+class SFTDataset(Dataset):
+    def __init__(self, data_dir, chunk_size=8192, shuffle=True):
+        super(SFTDataset, self).__init__()
+        self.data = []
+        for filename in os.listdir(data_dir):
+            with open(os.path.join(data_dir, filename), "rb") as file:
+                self.data.append(file.read())
+
+        if shuffle:
+            # Splitting data into chunks of size chunk_size
+            chunks = [self.data[i:i + chunk_size] for i in range(0, len(self.data), chunk_size)]
+            random.shuffle(chunks)
+            self.data = b''.join([b''.join(chunk) for chunk in chunks])
+        else:
+            self.data = b''.join(self.data)
+
         self.chunk_size = chunk_size 
                                                                                                     
     def __len__(self):                                                                              
@@ -48,9 +56,9 @@ class DataCollatorForSFTDataset(object):
     
 
 class ByteDataModule():
-    def __init__(self, data_dir: str, chunk_size: int):
+    def __init__(self, data_dir: str, chunk_size: int, shuffle: bool = True):
 
-        self.dataset = SFTDataset(data_dir=data_dir, chunk_size=chunk_size)
+        self.dataset = SFTDataset(data_dir=data_dir, chunk_size=chunk_size, shuffle=shuffle)
         self.data_collator = DataCollatorForSFTDataset()
 
 class MambaTrainer(Trainer):
@@ -72,4 +80,3 @@ class MambaTrainer(Trainer):
             os.makedirs(output_dir)
             
         torch.save(self.model.state_dict(), f"{output_dir}/pytorch_model.bin")
-

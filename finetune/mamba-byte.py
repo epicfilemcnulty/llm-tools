@@ -4,6 +4,8 @@ import transformers
 import os
 import random
 
+import bitsandbytes as bnb
+
 from tqdm import tqdm
 from transformers import TrainingArguments
 from mamba_ssm.models.mixer_seq_simple import MambaLMHeadModel, MambaConfig
@@ -25,8 +27,10 @@ def run(args):
         data_dir=config["dataset"],
         chunk_size=config["chunk_size"],
     )
+    adam = bnb.optim.Adam8bit(model.parameters(), lr=config["learning_rate"], betas=(0.9, 0.95))
     train_dataset = train_data.dataset
     output_dir = "trainees/" + config["model_name"]
+
     trainer = MambaTrainer(
         model=model,
         train_dataset=train_dataset,
@@ -37,19 +41,18 @@ def run(args):
             warmup_steps = config["warmup_steps"],
             max_steps = config["max_steps"],
             num_train_epochs=config["num_train_epochs"],
-            # Gotta fix attention_mask in Mamba.forward for this to work
             #evaluation_strategy = "steps",
             #eval_steps = config["eval_steps"],
             save_steps = config["save_steps"],
             save_total_limit = config["save_total_limit"],
             logging_steps=config["logging_steps"],
-            optim=config["optimizer"],
             lr_scheduler_type = config["scheduler"],
             bf16 = True,
             tf32 = True,
             seed=args.seed,
             output_dir=output_dir,
         ),
+        optimizers=(adam, None),
         data_collator=train_data.data_collator,
     )
     trainer.train(resume_from_checkpoint=args.checkpoint)

@@ -68,6 +68,8 @@ def mamba_query(query, sampler, model, sc=[]):
         temperature=sampler['temperature'],
         top_p=sampler['top_p'],
         top_k=sampler['top_k'],
+        min_p=sampler['min_p'],
+        repetition_penalty = sampler['repetition_penalty'],
         eos_token_id=0
     )
     gen_text = detokenize(output_ids)
