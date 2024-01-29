@@ -64,7 +64,7 @@ def mamba_query(query, sampler, model, sc=[]):
     
     output_ids = model.generate(
         input_ids=input_ids,
-        max_length=sampler['max_new_tokens'],
+        max_length=prompt_tokens + sampler['max_new_tokens'],
         temperature=sampler['temperature'],
         top_p=sampler['top_p'],
         top_k=sampler['top_k'],
