@@ -25,7 +25,8 @@ def run(args):
 
     train_data = ByteDataModule(
         data_dir=config["dataset"],
-        chunk_size=config["chunk_size"],
+        window_size=config["chunk_size"],
+        stride=config["stride"],
     )
     adam = bnb.optim.Adam8bit(model.parameters(), lr=config["learning_rate"], betas=(0.9, 0.95))
     train_dataset = train_data.dataset

@@ -12,33 +12,32 @@ from torch.utils.data import Dataset
 from transformers import Trainer
 
 class SFTDataset(Dataset):
-    def __init__(self, data_dir, chunk_size=8192, shuffle=True):
-        super(SFTDataset, self).__init__()
-        self.data = []
-        for filename in os.listdir(data_dir):
-            with open(os.path.join(data_dir, filename), "rb") as file:
-                self.data.append(file.read())
+   def __init__(self, data_dir, window_size=8192, stride=4096):
+       super(SFTDataset, self).__init__()
+       self.data = []
+       for filename in os.listdir(data_dir):
+           with open(os.path.join(data_dir, filename), "rb") as file:
+               self.data.append(file.read())
 
-        if shuffle:
-            # Splitting data into chunks of size chunk_size
-            chunks = [self.data[i:i + chunk_size] for i in range(0, len(self.data), chunk_size)]
-            random.shuffle(chunks)
-            self.data = b''.join([b''.join(chunk) for chunk in chunks])
-        else:
-            self.data = b''.join(self.data)
+       self.data = b''.join(self.data)
+       self.window_size = window_size
+       self.stride = stride
 
-        self.chunk_size = chunk_size 
-                                                                                                    
-    def __len__(self):                                                                              
-        return len(self.data) // self.chunk_size                                                    
-                                                                                                    
-    def __getitem__(self, i):                                                                       
-        start = i * (self.chunk_size)                                                           
-        end = (i + 1) * (self.chunk_size)                                                       
-        input_ids = torch.tensor([b for b in self.data[start:end]], dtype=torch.long)
-        # Shift labels by one position for language model training                                  
-        labels = torch.cat([input_ids[1:], torch.tensor([-100])])
-        return dict(input_ids=input_ids, labels=labels)    
+   def __len__(self):
+       return (len(self.data) - self.window_size) // self.stride + 1
+
+   def __getitem__(self, i):
+       start = i * self.stride
+       end = start + self.window_size
+       input_ids = torch.tensor([b for b in self.data[start:end]], dtype=torch.long)
+       input_ids = input_ids[:self.window_size]
+       input_ids = torch.cat([input_ids, torch.zeros(self.window_size - len(input_ids), dtype=torch.long)])
+
+          # Shift labels by one position for language model training
+       labels = torch.cat([input_ids[1:], torch.tensor([-100])])
+       labels = labels[:self.window_size]
+       labels = torch.cat([labels, torch.zeros(self.window_size - len(labels), dtype=torch.long)])
+       return dict(input_ids=input_ids, labels=labels)
 
 @dataclass
 class DataCollatorForSFTDataset(object):
@@ -56,9 +55,8 @@ class DataCollatorForSFTDataset(object):
     
 
 class ByteDataModule():
-    def __init__(self, data_dir: str, chunk_size: int, shuffle: bool = True):
-
-        self.dataset = SFTDataset(data_dir=data_dir, chunk_size=chunk_size, shuffle=shuffle)
+    def __init__(self, data_dir: str, window_size: int = 8192, stride: int = 4096):
+        self.dataset = SFTDataset(data_dir=data_dir, window_size=window_size, stride=stride)
         self.data_collator = DataCollatorForSFTDataset()
 
 class MambaTrainer(Trainer):
