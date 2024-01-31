@@ -16,12 +16,16 @@ def run(args):
     
     config = read_yaml_file(args.config_path)
 
-    model_config = MambaConfig(                                                                               
-      d_model=config["d_model"],                                                                                   
-      n_layer=config["n_layer"],                                                                                     
-      vocab_size=256,  # Set vocab size to 256 for byte-level inputs.                                 
-    )                                                                                                   
-    model = MambaLMHeadModel(config=model_config, device="cuda", dtype=torch.bfloat16)   
+    if "base_model" in config:
+        model_dir = config["base_model"]
+        model = MambaLMHeadModel.from_pretrained(model_dir, device="cuda", dtype=torch.bfloat16)
+    else:
+        model_config = MambaConfig(
+          d_model=config["d_model"],
+          n_layer=config["n_layer"],
+          vocab_size=256,  # Set vocab size to 256 for byte-level inputs.
+        )
+        model = MambaLMHeadModel(config=model_config, device="cuda", dtype=torch.bfloat16)
 
     train_data = ByteDataModule(
         data_dir=config["dataset"],
