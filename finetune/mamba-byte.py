@@ -9,7 +9,7 @@ import bitsandbytes as bnb
 from tqdm import tqdm
 from transformers import TrainingArguments
 from mamba_ssm.models.mixer_seq_simple import MambaLMHeadModel, MambaConfig
-from utils.mamba import MambaTrainer, ByteDataModule
+from utils.mamba import MambaTrainer, ByteDataModule, DatasetConfig
 from utils.misc import read_yaml_file
 
 def run(args):
@@ -27,11 +27,8 @@ def run(args):
         )
         model = MambaLMHeadModel(config=model_config, device="cuda", dtype=torch.bfloat16)
 
-    train_data = ByteDataModule(
-        data_dir=config["dataset"],
-        window_size=config["chunk_size"],
-        stride=config["stride"],
-    )
+    data_config = DatasetConfig(data_dir=config["dataset"], window_size=config["chunk_size"], stride=config["stride"])
+    train_data = ByteDataModule(data_config)
     adam = bnb.optim.Adam8bit(model.parameters(), lr=config["learning_rate"], betas=(0.9, 0.95))
     train_dataset = train_data.dataset
     output_dir = "trainees/" + config["model_name"]

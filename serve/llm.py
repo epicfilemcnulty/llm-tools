@@ -5,7 +5,7 @@ import time
 import torch
 import gc
 import bottle
-from bottle import Bottle, run, route, request
+from bottle import Bottle, run, route, request, response
 bottle.BaseRequest.MEMFILE_MAX = 1024 * 1024 * 10
 
 from utils.loaders import load_exl2_model, load_tf_model, load_mamba_model
@@ -27,10 +27,13 @@ def load_model():
     model_alias = data.get('model_alias')
     trust_remote_code = data.get('trust_remote_code', False)
     if not model_dir:
+        response.status = 400
         return {"error": "model_dir is required"}
     if not model_type:
+        response.status = 400
         return {"error": "model_type is required"}
     if not model_alias:
+        response.status = 400
         return {"error": "model_alias is required"}
     context_length = data.get('context_length')
     lora_dir = data.get('lora_dir')
