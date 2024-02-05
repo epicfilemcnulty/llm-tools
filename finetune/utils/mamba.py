@@ -26,23 +26,33 @@ class SFTDataset(Dataset):
        self.config = config
        self.data = []
 
-       file_names = os.listdir(config.data_dir)
-       random.shuffle(file_names)
+       file_names_parquet=[]
+       file_names_txt=[]
 
-       for filename in file_names:
-           file_path = os.path.join(config.data_dir, filename)
-           if filename.endswith('.txt'):
-               with open(file_path, "rb") as file:
-                   text = file.read()
-                   self.data.append(self.config.sod_token + text + self.config.eod_token)
-           elif filename.endswith('.parquet'): 
-               df = pd.read_parquet(file_path)
-               # Shuffle the DataFrame
-               df = df.sample(frac=1).reset_index(drop=True)
-               for index,row in df.iterrows():
-                    text=row['text'].encode('utf-8')
-                    text=self.config.sod_token + text + self.config.eod_token
-                    self.data.append(text)
+       for filename in os.listdir(config.data_dir):
+           if filename.endswith('.parquet'):
+               file_names_parquet.append(filename)
+           elif filename.endswith('.txt'):
+               file_names_txt.append(filename)
+       dfs=[]
+       for filename in file_names_parquet:
+           df=pd.read_parquet(os.path.join(config.data_dir,filename))
+           dfs.append(df)
+       # Combine all DataFrames into a single DataFrame and shuffle it.
+       df_combined=pd.concat(dfs,axis=0).reset_index(drop=True)
+       df_combined=df_combined.sample(frac=1).reset_index(drop=True)
+
+       for index,row in df_combined.iterrows():
+           text=row['text'].encode('utf-8')
+           text=self.config.sod_token + text + self.config.eod_token
+           self.data.append(text)
+       # Process the rest of the txt files.
+       random.shuffle(file_names_txt)
+
+       for filename in file_names_txt:
+           with open(os.path.join(config.data_dir,filename),"rb") as file:
+               text = file.read()
+               self.data.append(self.config.sod_token + text + self.config.eod_token)
 
        self.data = b''.join(self.data)
 
@@ -76,7 +86,6 @@ class DataCollatorForSFTDataset(object):
             'labels': labels,                                                              
         }  
     
-
 class ByteDataModule():
     def __init__(self, config: DatasetConfig):
         self.dataset = SFTDataset(config)
