@@ -17,8 +17,8 @@ class DatasetConfig:
     data_dir: str
     window_size: int = 8192
     stride: int = 4096
-    sod_token: bytes = b'<sod>'
-    eod_token: bytes = b'<eod>'
+    sod_token: bytes = b'<sod>\n'
+    eod_token: bytes = b'\n<eod>\n'
 
 class SFTDataset(Dataset):
    def __init__(self, config):
