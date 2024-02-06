@@ -13,18 +13,31 @@ from torch.utils.data import Dataset
 from transformers import Trainer
 
 @dataclass
-class DatasetConfig:
+class ByteDatasetConfig:
     data_dir: str
     window_size: int = 8192
-    stride: int = 4096
-    sod_token: bytes = b'<sod>\n'
-    eod_token: bytes = b'\n<eod>\n'
+    stx_token: bytes = b'\x02' # STX ASCII control character (Start of TeXt)
+    etx_token: bytes = b'\x03' # ETX ASCII control character (End of TeXt)
 
-class SFTDataset(Dataset):
+
+class ByteDataset(Dataset):
+
+   def calc_chunks(self, text):
+       if len(text) == 0:
+           return -1
+       delimiters = len(self.config.stx_token) + len(self.config.etx_token)
+       length = len(text) + delimiters
+       chunks = length // self.config.window_size
+       rest_bytes = length - chunks * self.config.window_size
+       if rest_bytes > 0:
+           chunks += 1
+       return chunks
+
    def __init__(self, config):
-       super(SFTDataset, self).__init__()
+       super(ByteDataset, self).__init__()
        self.config = config
        self.data = []
+       self.chunks = []
 
        file_names_parquet=[]
        file_names_txt=[]
@@ -34,6 +47,7 @@ class SFTDataset(Dataset):
                file_names_parquet.append(filename)
            elif filename.endswith('.txt'):
                file_names_txt.append(filename)
+
        dfs=[]
        for filename in file_names_parquet:
            df=pd.read_parquet(os.path.join(config.data_dir,filename))
@@ -44,36 +58,59 @@ class SFTDataset(Dataset):
 
        for index,row in df_combined.iterrows():
            text=row['text'].encode('utf-8')
-           text=self.config.sod_token + text + self.config.eod_token
-           self.data.append(text)
+           chunks = self.calc_chunks(text)
+           if chunks > 0:
+               self.data.append(text)
+               self.chunks.append(chunks)
+
        # Process the rest of the txt files.
        random.shuffle(file_names_txt)
 
        for filename in file_names_txt:
            with open(os.path.join(config.data_dir,filename),"rb") as file:
                text = file.read()
-               self.data.append(self.config.sod_token + text + self.config.eod_token)
-
-       self.data = b''.join(self.data)
+               chunks = self.calc_chunks(text)
+               if chunks > 0:
+                   self.data.append(text)
+                   self.chunks.append(chunks)
 
    def __len__(self):
-       return (len(self.data) - self.config.window_size) // self.config.stride + 1
+       return sum(self.chunks)
+
+   def map_idx(self, i):
+      accum_chunks = 0
+      for idx, num_chunks in enumerate(self.chunks):
+          if accum_chunks + num_chunks > i:
+              return idx, i - accum_chunks
+          accum_chunks += num_chunks
+      raise ValueError(f"Index {i} out of range")
 
    def __getitem__(self, i):
-       start = i * self.config.stride
+       idx, offset = self.map_idx(i)
+       start = offset * self.config.window_size
        end = start + self.config.window_size
-       input_ids = torch.tensor([b for b in self.data[start:end]], dtype=torch.long)
-       input_ids = input_ids[:self.config.window_size]
-       input_ids = torch.cat([input_ids, torch.zeros(self.config.window_size - len(input_ids), dtype=torch.long)])
 
-          # Shift labels by one position for language model training
-       labels = torch.cat([input_ids[1:], torch.tensor([-100])])
-       labels = labels[:self.config.window_size]
-       labels = torch.cat([labels, torch.zeros(self.config.window_size - len(labels), dtype=torch.long)])
-       return dict(input_ids=input_ids, labels=labels)
+       if offset == 0:
+           input_ids = [b for b in self.config.stx_token]
+           input_ids += [b for b in self.data[idx][start:end-len(self.config.stx_token)]]
+       else:
+           input_ids = [b for b in self.data[idx][start-len(self.config.stx_token):end]]
+
+       # Check if it's the last chunk of a document.
+       if (offset + 1) * self.config.window_size >= len(self.data[idx]):
+           input_ids += [b for b in self.config.etx_token]
+
+       input_ids_tensor = torch.tensor(input_ids[:self.config.window_size], dtype=torch.long)
+       # Pad sequence to desired length.
+       padded_input_ids = torch.cat([input_ids_tensor, torch.zeros(self.config.window_size - len(input_ids_tensor), dtype=torch.long)])
+
+       # Shift labels by one position for language model training
+       labels_tensor = torch.cat([padded_input_ids[1:],torch.tensor([-100])])
+       padded_labels = torch.cat([labels_tensor, torch.zeros(self.config.window_size - len(labels_tensor), dtype=torch.long)])
+       return dict(input_ids=padded_input_ids, labels=padded_labels)
 
 @dataclass
-class DataCollatorForSFTDataset(object):
+class DataCollatorForByteDataset(object):
 
     def __call__(self, instances):
 
@@ -87,9 +124,9 @@ class DataCollatorForSFTDataset(object):
         }  
     
 class ByteDataModule():
-    def __init__(self, config: DatasetConfig):
-        self.dataset = SFTDataset(config)
-        self.data_collator = DataCollatorForSFTDataset()
+    def __init__(self, config: ByteDatasetConfig):
+        self.dataset = ByteDataset(config)
+        self.data_collator = DataCollatorForByteDataset()
 
 class MambaTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
