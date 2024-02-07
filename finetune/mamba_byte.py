@@ -32,10 +32,10 @@ def run(args):
     train_data = ByteDataModule(data_config)
     output_dir = "trainees/" + config["model_name"]
 
-    if args.adam_w:
-        optimizer  = AdamW(model.parameters(), lr=config["learning_rate"], betas=(0.9, 0.95))
+    if "optimizer" in config and config["optimizer"] == 'full':
+        optimizer  = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"], betas=(0.9, 0.95))
     else:
-        optimizer = bnb.optim.Adam8bit(model.parameters(), lr=config["learning_rate"], betas=(0.9, 0.95))
+        optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=config["learning_rate"], betas=(0.9, 0.95))
 
     lr_scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=config["warmup_steps"], num_training_steps=len(train_data.dataset))
 
@@ -71,6 +71,5 @@ if __name__ == "__main__":
     parser.add_argument("config_path", help="Path to the config YAML file")
     parser.add_argument("-c", "--checkpoint", type=str, default=None, required=False)
     parser.add_argument("-s", "--seed", type=int, default=42, required=False)
-    parser.add_argument('-w', '--adam_w', action='store_true', help="Use transformers AdamW instead of bnb's Adam8bit")
     args = parser.parse_args()
     run(args)
