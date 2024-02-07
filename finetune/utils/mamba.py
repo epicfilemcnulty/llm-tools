@@ -6,11 +6,13 @@ import os
 import random
 
 from torch.nn.utils.rnn import pad_sequence 
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import pandas as pd
 from dataclasses import dataclass
 from torch.utils.data import Dataset
 from transformers import Trainer
+
+tqdm.pandas()
 
 @dataclass
 class ByteDatasetConfig:
@@ -48,15 +50,17 @@ class ByteDataset(Dataset):
            elif filename.endswith('.txt'):
                file_names_txt.append(filename)
 
+       print("Reading and combining parquet files")
        dfs=[]
-       for filename in file_names_parquet:
+       for filename in tqdm(file_names_parquet):
            df=pd.read_parquet(os.path.join(config.data_dir,filename))
            dfs.append(df)
        # Combine all DataFrames into a single DataFrame and shuffle it.
        df_combined=pd.concat(dfs,axis=0).reset_index(drop=True)
        df_combined=df_combined.sample(frac=1).reset_index(drop=True)
 
-       for index,row in df_combined.iterrows():
+       print("Processing parquet dataframes")
+       for index,row in tqdm(df_combined.iterrows(), total=df_combined.shape[0]):
            text=row['text'].encode('utf-8')
            chunks = self.calc_chunks(text)
            if chunks > 0:
