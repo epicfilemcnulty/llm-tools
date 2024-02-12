@@ -56,16 +56,17 @@ class ByteDataset(Dataset):
            df=pd.read_parquet(os.path.join(config.data_dir,filename))
            dfs.append(df)
        # Combine all DataFrames into a single DataFrame and shuffle it.
-       df_combined=pd.concat(dfs,axis=0).reset_index(drop=True)
-       df_combined=df_combined.sample(frac=1).reset_index(drop=True)
+       if len(dfs) > 0:
+           df_combined=pd.concat(dfs,axis=0).reset_index(drop=True)
+           df_combined=df_combined.sample(frac=1).reset_index(drop=True)
 
-       print("Processing parquet dataframes")
-       for index,row in tqdm(df_combined.iterrows(), total=df_combined.shape[0]):
-           text=row['text'].encode('utf-8')
-           chunks = self.calc_chunks(text)
-           if chunks > 0:
-               self.data.append(text)
-               self.chunks.append(chunks)
+           print("Processing parquet dataframes")
+           for index,row in tqdm(df_combined.iterrows(), total=df_combined.shape[0]):
+               text=row['text'].encode('utf-8')
+               chunks = self.calc_chunks(text)
+               if chunks > 0:
+                   self.data.append(text)
+                   self.chunks.append(chunks)
 
        # Process the rest of the txt files.
        random.shuffle(file_names_txt)
