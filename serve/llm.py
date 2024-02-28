@@ -8,8 +8,8 @@ import bottle
 from bottle import Bottle, run, route, request, response
 bottle.BaseRequest.MEMFILE_MAX = 1024 * 1024 * 10
 
-from utils.loaders import load_exl2_model, load_tf_model, load_mamba_model
-from utils.generation import exl2_query, tf_query, mamba_query
+from utils.loaders import load_exl2_model, load_tf_model
+from utils.generation import exl2_query, tf_query
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', default=8013, required=False, type=int, help="Port to listen on")
