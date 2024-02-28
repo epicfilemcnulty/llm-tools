@@ -26,6 +26,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-m', '--model', required=True, type=str, help="Path to the model dir")
 parser.add_argument('-d', '--database', required=True, type=str, help="Database name")
 parser.add_argument('-u', '--db_user', required=True, type=str, help="Database user name")
+parser.add_argument('--host', required=False, default="127.0.0.1", type=str, help="Database host")
 parser.add_argument('-l', '--length', default=0, required=False, type=int, help="Context length")
 parser.add_argument('--port', default=8014, required=False, type=int, help="Port to listen on")
 parser.add_argument('--ip', default='127.0.0.1', required=False, type=str, help="IP to listen on")
@@ -45,7 +46,7 @@ model.load()
 tokenizer = ExLlamaV2Tokenizer(config)
 
 # Connect to your postgres DB                                                   
-conn = psycopg2.connect(database=args.database, user=args.db_user)
+conn = psycopg2.connect(database=args.database, user=args.db_user, host=args.host)
 register_vector(conn)
 
 app = Bottle()
@@ -53,14 +54,10 @@ app = Bottle()
 @app.route('/search', method='POST')
 def complete():
     data = request.json
-    add_bos = data.get('add_bos', False)
-    add_eos = data.get('add_eos', False)
     limit = data.get('limit', 3)
-    category = data.get('category', "chats")
-    encode_special = data.get('encode_special_tokens', False)
     query = data.get('query')
 
-    input_ids = tokenizer.encode(query, add_eos = add_eos, add_bos = add_bos, encode_special_tokens = encode_special)
+    input_ids = tokenizer.encode(query, add_eos = False, add_bos = False, encode_special_tokens = False)
     tokens = input_ids.size()[-1] 
     if tokens > config.max_input_len:
         return bottle.HTTPResponse(status=501, body=f"Length exceeded: {tokens}")
@@ -71,7 +68,7 @@ def complete():
 
     with conn:
         with conn.cursor() as cur:
-            cur.execute('SELECT content FROM ' + category + ' ORDER BY embedding <-> %s LIMIT ' + str(limit), (embedding,))
+            cur.execute('SELECT page_id FROM wiki_embeddings ORDER BY embedding <-> %s LIMIT ' + str(limit), (embedding,))
             matches = cur.fetchall()
             # Extract the first element from each tuple                                 
             matches = [match[0] for match in matches]
@@ -84,13 +81,16 @@ def complete():
 @app.route('/embed', method='POST')
 def complete():
     data = request.json
-    add_bos = data.get('add_bos', False)
-    add_eos = data.get('add_eos', False)
-    category = data.get('category', "chats")
-    encode_special = data.get('encode_special_tokens', False)
     content = data.get('content')
+    page_id = data.get('page_id')
+    
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT content FROM wiki_pages WHERE id = %s",  (page_id,))
+            rows = cur.fetchall()
+            content = rows[0][0]
 
-    input_ids = tokenizer.encode(content, add_eos = add_eos, add_bos = add_bos, encode_special_tokens = encode_special)
+    input_ids = tokenizer.encode(content, add_eos = False, add_bos = False, encode_special_tokens = False)
     tokens = input_ids.size()[-1] 
     if tokens > config.max_input_len:
         return bottle.HTTPResponse(status=501, body=f"Length exceeded: {tokens}")
@@ -102,7 +102,7 @@ def complete():
     # Connect to your postgres DB                                                   
     with conn:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO " + category + " (content, embedding) VALUES (%s, %s)", (content, embedding))
+            cur.execute("INSERT INTO wiki_embeddings (page_id, embedding) VALUES (%s, %s)", (page_id, embedding))
 
     return {
         "status": "OK",

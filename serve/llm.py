@@ -43,9 +43,6 @@ def load_model():
     if model_type == "tf":
         models[model_alias] = load_tf_model(model_dir, context_length, lora_dir, trust_remote_code)
         return {"message": "model loaded"}
-    if model_type == "mamba":
-        models[model_alias] = load_mamba_model(model_dir)
-        return {"message": "model loaded"}
 
 @app.route('/unload', method='DELETE')
 def unload_model():
@@ -93,8 +90,6 @@ def complete():
         new_text, prompt_tokens, generated_tokens, stop_reason = exl2_query(query, sampler, models[model_alias]["tokenizer"], models[model_alias]["generator"], models[model_alias]["lora"])
     if model_type == "tf":
         new_text, prompt_tokens, generated_tokens = tf_query(query, sampler, models[model_alias]["model"], models[model_alias]["tokenizer"])
-    if model_type == "mamba":
-        new_text, prompt_tokens, generated_tokens = mamba_query(query, sampler, models[model_alias]["model"])
     end_time = time.time_ns()
     secs = (end_time - start_time) / 1e9
 

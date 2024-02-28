@@ -1,6 +1,5 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-from mamba_ssm.models.mixer_seq_simple import MambaLMHeadModel
 from peft import PeftModel
 
 from exllamav2 import (
@@ -48,12 +47,8 @@ def load_tf_model(model_dir, context_length=None, lora_dir=None, trust_remote_co
     )
     model = AutoModelForCausalLM.from_pretrained(model_dir, device_map='auto', quantization_config=nf4_config, trust_remote_code=trust_remote_code, attn_implementation="flash_attention_2")
     print(model.generation_config)
-
+    model.eval()
     if lora_dir is not None:
         model = PeftModel.from_pretrained(model, lora_dir)
 
     return { "model": model, "tokenizer": tokenizer, "type": "tf" }
-
-def load_mamba_model(model_dir):
-    model = MambaLMHeadModel.from_pretrained(model_dir, device="cuda", dtype=torch.bfloat16)
-    return { "model": model, "type": "mamba" }
